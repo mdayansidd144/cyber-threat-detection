@@ -1,22 +1,39 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
 
 dotenv.config();
+const connectDB = require('./config/db');
+const authRoutes = require('./routes/authRoutes');
+connectDB();
 const app = express();
-app.use(helmet());
-app.use(cors());
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+app.use(cors({
+    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    credentials: true
+}));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
+app.use('/api/auth', authRoutes);
 app.get('/', (req, res) => {
     res.json({
         message: 'Cyber Threat Detection API',
         status: 'running',
         version: '1.0.0',
-        timestamp: new Date().toISOString()
+        endpoints: {
+            auth: {
+                register: 'POST /api/auth/register',
+                login: 'POST /api/auth/login',
+                me: 'GET /api/auth/me',
+                update: 'PUT /api/auth/update-profile',
+                logout: 'POST /api/auth/logout'
+            }
+        }
     });
 });
 app.get('/health', (req, res) => {
@@ -27,52 +44,34 @@ app.get('/health', (req, res) => {
         mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
     });
 });
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        message: 'Route not found'
+    });
+});
+app.use((err, req, res, next) => {
+    console.error('Error:', err.stack);
+    res.status(500).json({
+        success: false,
+        message: 'Something went wrong!',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+});
 const PORT = process.env.PORT || 5000;
-
-async function startServer() {
-    try {
-        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/cyber_threat', {
-            useNewUrlParser: true,
-            useUnifiedTopology: true
-        });
-        console.log('MongoDB Connected Successfully!');
-        console.log(`Database: ${mongoose.connection.name}`);
-        console.log(`Host: ${mongoose.connection.host}`);
-        console.log(`MongoDB Status: Connected`);
-        // Test database route
-app.post('/test-db', async (req, res) => {
-    try {
-        const Test = require('./models/Test');
-        const test = new Test({
-            name: 'Test Entry',
-            message: 'MongoDB is working!'
-        });
-        await test.save();
-        res.json({ success: true, message: 'Data saved to database!' });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
+const server = app.listen(PORT, () => {
+    console.log(`\n Server running on http://localhost:${PORT}`);
+    console.log(`API available at http://localhost:${PORT}/`);
+    console.log(`Auth endpoints at http://localhost:${PORT}/api/auth`);
+    console.log(`\n Auth Endpoints:`);
+    console.log(`   POST   /api/auth/register    - Register new user`);
+    console.log(`   POST   /api/auth/login       - Login user`);
+    console.log(`   GET    /api/auth/me          - Get current user (protected)`);
+    console.log(`   PUT    /api/auth/update-profile - Update profile (protected)`);
+    console.log(`   POST   /api/auth/logout      - Logout user (protected)`);
 });
-
-app.get('/test-db', async (req, res) => {
-    try {
-        const Test = require('./models/Test');
-        const data = await Test.find();
-        res.json({ success: true, data });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
+process.on('unhandledRejection', (err) => {
+    console.error('Unhandled Rejection:', err);
+    server.close(() => process.exit(1));
 });
-                app.listen(PORT, () => {
-            console.log(`Server is running on http://localhost:${PORT}`);
-            console.log(`API available at http://localhost:${PORT}/`);
-            console.log(`Health check at http://localhost:${PORT}/health`);
-        });
-        
-    } catch (error) {
-        console.error('Failed to start server:', error.message);
-        console.log('Make sure MongoDB is running and IP is whitelisted!');
-        process.exit(1);
-    }
-}
-startServer();
+module.exports = app;
