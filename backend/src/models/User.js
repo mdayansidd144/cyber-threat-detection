@@ -9,7 +9,7 @@ const UserSchema = new mongoose.Schema({
         minlength: [3, 'Username must be at least 3 characters'],
         maxlength: [30, 'Username cannot exceed 30 characters']
     },
-        email: {
+    email: {
         type: String,
         required: [true, 'Email is required'],
         unique: true,
@@ -26,23 +26,37 @@ const UserSchema = new mongoose.Schema({
         minlength: [6, 'Password must be at least 6 characters'],
         select: false
     },
-        role: {
+    googleId: {
+        type: String,
+        sparse: true,
+        unique: true,
+        default: null
+    },
+    isGoogleAuth: {
+        type: Boolean,
+        default: false
+    },
+    avatar: {
+        type: String,
+        default: ''
+    },
+    role: {
         type: String,
         enum: ['admin', 'analyst', 'user'],
         default: 'user'
     },
-        isActive: {
+    isActive: {
         type: Boolean,
         default: true
     },
-        lastLogin: {
+    lastLogin: {
         type: Date
     },
-        createdAt: {
+    createdAt: {
         type: Date,
         default: Date.now
     },
-        updatedAt: {
+    updatedAt: {
         type: Date,
         default: Date.now
     }
@@ -50,16 +64,13 @@ const UserSchema = new mongoose.Schema({
     timestamps: true
 });
 UserSchema.pre('save', async function(next) {
-    // Only hash if password is modified
     if (!this.isModified('password')) {
         return next();
     }
-    
     try {
         const salt = await bcrypt.genSalt(10);
         this.password = await bcrypt.hash(this.password, salt);
         this.updatedAt = Date.now();
-        
         next();
     } catch (error) {
         next(error);
@@ -79,6 +90,8 @@ UserSchema.methods.getPublicProfile = function() {
         email: this.email,
         role: this.role,
         isActive: this.isActive,
+        isGoogleAuth: this.isGoogleAuth,
+        avatar: this.avatar,
         lastLogin: this.lastLogin,
         createdAt: this.createdAt
     };

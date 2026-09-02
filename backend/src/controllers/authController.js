@@ -8,10 +8,8 @@ const generateToken = (userId) => {
     );
 };
 const sendTokenResponse = (user, statusCode, res) => {
-    // Generate token
     const token = generateToken(user._id);
     const userData = user.getPublicProfile();
-
     res.status(statusCode).json({
         success: true,
         token,
@@ -33,7 +31,6 @@ const register = async (req, res) => {
                 { username: username }
             ]
         });
-
         if (existingUser) {
             return res.status(400).json({
                 success: false,
@@ -47,7 +44,6 @@ const register = async (req, res) => {
             role: role || 'user'
         });
         sendTokenResponse(user, 201, res);
-
     } catch (error) {
         console.error('Registration Error:', error);
         if (error.name === 'ValidationError') {
@@ -57,7 +53,6 @@ const register = async (req, res) => {
                 message: messages.join(', ')
             });
         }
-
         res.status(500).json({
             success: false,
             message: 'Registration failed. Please try again.'
@@ -74,7 +69,6 @@ const login = async (req, res) => {
             });
         }
         const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
-
         if (!user) {
             return res.status(401).json({
                 success: false,
@@ -88,7 +82,6 @@ const login = async (req, res) => {
             });
         }
         const isMatch = await user.comparePassword(password);
-
         if (!isMatch) {
             return res.status(401).json({
                 success: false,
@@ -98,7 +91,6 @@ const login = async (req, res) => {
         user.lastLogin = Date.now();
         await user.save();
         sendTokenResponse(user, 200, res);
-
     } catch (error) {
         console.error('Login Error:', error);
         res.status(500).json({
@@ -109,9 +101,10 @@ const login = async (req, res) => {
 };
 const getCurrentUser = async (req, res) => {
     try {
+        const user = await User.findById(req.user._id);
         res.status(200).json({
             success: true,
-            user: req.user.getPublicProfile()
+            user: user.getPublicProfile()
         });
     } catch (error) {
         console.error('Get User Error:', error);
@@ -126,7 +119,6 @@ const updateProfile = async (req, res) => {
         const { username, email, password } = req.body;
         const userId = req.user._id;
         const user = await User.findById(userId);
-
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -137,13 +129,11 @@ const updateProfile = async (req, res) => {
         if (email) user.email = email.toLowerCase();
         if (password) user.password = password;
         await user.save();
-
         res.status(200).json({
             success: true,
             message: 'Profile updated successfully',
             user: user.getPublicProfile()
         });
-
     } catch (error) {
         console.error('Update Profile Error:', error);
         res.status(500).json({
